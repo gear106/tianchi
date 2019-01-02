@@ -9,6 +9,9 @@ import pandas as pd
 import numpy as np
 import xgboost as xgb
 
+import seaborn as sn
+import matplotlib.pyplot as plt
+
 from sklearn.model_selection import train_test_split, KFold
 from sklearn.model_selection import GridSearchCV
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
@@ -25,11 +28,24 @@ root = 'data/'
 train = pd.read_csv(root + 'zhengqi_train.txt', sep='\t')
 test = pd.read_table(root + 'zhengqi_test.txt')
 
-features = train.drop(['target'], axis=1).values
+############################--分析数据分布规律--################################
+train_x = train.drop(['target'], axis=1)
+
+for col in train_x.columns:
+    sn.distplot(train_x[col])
+    sn.distplot(test[col])
+    plt.show()
+    
+'''发现V5, V9, V11, V22, V28测试集和训练集数据分布不一致，删除'''
+features = train_x.drop(['V5','V9','V11','V22','V28'], axis=1)
+test = test.drop(['V5','V9','V11','V22','V28'], axis=1)
+  
 labels = train.target.values
 
-scaler1 = StandardScaler()
-features = scaler1.fit_transform(features)
+scaler1 = StandardScaler().fit(features)
+features = scaler1.transform(features)
+test = scaler1.transform(test)
+
 
 train_X, test_X, train_Y, test_Y = train_test_split(features, labels, test_size=0.2, random_state=1)
 ##############################--Ridge--########################################
@@ -67,7 +83,7 @@ stack.fit(train_X, train_Y)
 pred_Y = stack.predict(test_X)
 print(mean_squared_error(test_Y, pred_Y))
 
-Y_pred = stack.predict(test.values)
+Y_pred = stack.predict(test)
 results = pd.DataFrame(Y_pred, columns=['target'])
 results.to_csv("results.txt", index=False, header=False)
 print("over")
