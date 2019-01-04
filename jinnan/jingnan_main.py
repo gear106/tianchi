@@ -26,7 +26,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split, KFold
 from sklearn.model_selection import GridSearchCV
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
-from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.svm import SVR
 
@@ -148,13 +148,18 @@ train_X, test_X, train_Y, test_Y = train_test_split(train_X, train_Y, test_size=
 ##############################--Ridge--########################################
 ridge = Ridge(alpha=0.01, normalize=True, max_iter=1000, random_state=2019)
 
-###############################--SVR--##########################################
-mySVR = SVR(C=1.8, epsilon=0.2, gamma=0.005)
+###############################--RFR--##########################################
+myRFR = RandomForestRegressor(n_estimators=2000, max_depth=5, min_samples_leaf=10, min_samples_split=0.001,
+                              max_features='auto', max_leaf_nodes=30, min_weight_fraction_leaf=0.001, random_state=10)
+stack = myRFR
+stack.fit(train_X, train_Y)
+Y_pred = stack.predict(test_X)
+print(mean_squared_error(test_Y, Y_pred))
 
 
 ###############################--GBR--##########################################
-myGBR = GradientBoostingRegressor(learning_rate=0.01, loss='ls', n_estimators=1500, max_depth=5,
-                                  max_features='sqrt', max_leaf_nodes=None,
+myGBR = GradientBoostingRegressor(alpha=0.7, learning_rate=0.01, loss='huber', n_estimators=2000, max_depth=5,
+                                  max_features='sqrt', max_leaf_nodes=9,
                                   random_state=10, subsample=0.8, verbose=0,
                                   warm_start=False)
 
@@ -165,11 +170,12 @@ stack.fit(train_X, train_Y)
 Y_pred = stack.predict(test_X)
 print(mean_squared_error(test_Y, Y_pred))
 
-###############################--xgboost--######################################
+################################--xgboost--######################################
 
 cv_params = {'n_estimators': [1500]}
-other_params = {'learning_rate': 0.01, 'n_estimators': 500, 'max_depth': 6, 'min_child_weight': 1, 'seed': 0,
-                    'subsample': 0.8, 'colsample_bytree': 0.8, 'gamma': 0, 'reg_alpha': 0, 'reg_lambda': 1}
+other_params = {'learning_rate': 0.02, 'n_estimators': 500, 'max_depth': 7, 'min_child_weight': 1, 'seed': 0,
+                'max_delta_step':0.1, 
+                    'subsample': 0.8, 'colsample_bytree': 0.8, 'gamma': 0.001, 'reg_alpha': 0, 'reg_lambda': 1}
 
 model = xgb.XGBRegressor(**other_params)
 mgb = GridSearchCV(estimator=model, param_grid=cv_params, scoring='neg_mean_squared_error', cv=5, verbose=1)
@@ -183,8 +189,8 @@ stack.fit(train_X, train_Y)
 Y_pred = stack.predict(test_X)
 print(mean_squared_error(test_Y, Y_pred))
 
-##############################--模型融合--######################################
-stack = StackingCVRegressor(regressors=[myGBR, myxgb], meta_regressor=ridge,
+###############################--模型融合--######################################
+stack = StackingCVRegressor(regressors=[myGBR, myxgb, myRFR], meta_regressor=ridge,
                              use_features_in_secondary=True, cv=5)
                 
 stack.fit(train_X, train_Y)

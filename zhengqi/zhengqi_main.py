@@ -47,7 +47,7 @@ features = scaler1.transform(features)
 test = scaler1.transform(test)
 
 
-train_X, test_X, train_Y, test_Y = train_test_split(features, labels, test_size=0.2, random_state=1)
+train_X, test_X, train_Y, test_Y = train_test_split(features, labels, test_size=0.01, random_state=1)
 ##############################--Ridge--########################################
 ridge = Ridge(random_state=2019)
 
