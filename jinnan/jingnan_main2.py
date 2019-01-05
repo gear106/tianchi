@@ -54,7 +54,7 @@ good_cols.remove('收率')
 test  = test[good_cols]
 
 # 删除异常值
-train = train[train['收率'] > 0.88]
+train = train[train['收率'] > 0.89]
 
 # 合并数据集
 target = train['收率']
