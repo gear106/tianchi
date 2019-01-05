@@ -47,7 +47,7 @@ features = scaler1.transform(features)
 test = scaler1.transform(test)
 
 
-train_X, test_X, train_Y, test_Y = train_test_split(features, labels, test_size=0.01, random_state=1)
+train_X, test_X, train_Y, test_Y = train_test_split(features, labels, test_size=0.2, random_state=1)
 ##############################--Ridge--########################################
 ridge = Ridge(random_state=2019)
 
@@ -76,7 +76,7 @@ print('最佳模型得分:{0}'.format(-mgb.best_score_))
 myxgb = mgb.best_estimator_
 
 ##############################--模型融合--######################################
-stack = StackingCVRegressor(regressors=[mySVR, myGBR, myxgb], meta_regressor=LinearRegression(),
+stack = StackingCVRegressor(regressors=[myGBR, myxgb], meta_regressor=LinearRegression(),
                              use_features_in_secondary=True, cv=5)
                 
 stack.fit(train_X, train_Y)

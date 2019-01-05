@@ -1,21 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Jan  2 22:09:19 2019
+Created on Fri Jan  4 21:05:14 2019
 
 @author: gear
 github:  https://github.com/gear106
 """
 
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.special import jn
-from IPython.display import display, clear_output
 import time
 
 import xgboost as xgb
-from sklearn.linear_model import BayesianRidge
-from scipy import sparse
+import lightgbm as lgb
 import warnings
 import re
 import matplotlib.pyplot as plt
@@ -56,7 +54,7 @@ good_cols.remove('收率')
 test  = test[good_cols]
 
 # 删除异常值
-train = train[train['收率'] > 0.85]
+train = train[train['收率'] > 0.88]
 
 # 合并数据集
 target = train['收率']
@@ -137,8 +135,11 @@ data['样本id'] = data.apply(lambda df: sample(df['样本id']), axis=1)
 scaler1 = StandardScaler().fit(data)
 scaler2 = MinMaxScaler().fit(data)
 
-train_X = scaler2.transform(data[:train.shape[0]])
-test = scaler2.transform(data[train.shape[0]:])
+train_X = scaler1.transform(data[:train.shape[0]])
+test = scaler1.transform(data[train.shape[0]:])
+
+#train_X = scaler2.transform(data[:train.shape[0]])
+#test = scaler2.transform(data[train.shape[0]:])
 
 train_Y = target.values
 
@@ -146,9 +147,9 @@ train_X, test_X, train_Y, test_Y = train_test_split(train_X, train_Y, test_size=
         
 
 ##############################--Ridge--########################################
-ridge = Ridge(alpha=0.01, normalize=True, max_iter=1000, random_state=2019)
+ridge = Ridge(alpha=0.01, normalize=True, max_iter=1500, random_state=2019)
 
-###############################--RFR--##########################################
+###############################--RFR--#########################################
 myRFR = RandomForestRegressor(n_estimators=2000, max_depth=10, min_samples_leaf=10, min_samples_split=0.001,
                               max_features='auto', max_leaf_nodes=30, min_weight_fraction_leaf=0.001, random_state=10)
 stack = myRFR
@@ -156,11 +157,10 @@ stack.fit(train_X, train_Y)
 Y_pred = stack.predict(test_X)
 print(mean_squared_error(test_Y, Y_pred))
 
-
-###############################--GBR--##########################################
-myGBR = GradientBoostingRegressor(alpha=0.7, learning_rate=0.01, loss='huber', n_estimators=2000, max_depth=5,
-                                  max_features='sqrt', max_leaf_nodes=9,
-                                  random_state=10, subsample=0.8, verbose=0,
+################################--GBR--##########################################
+myGBR = GradientBoostingRegressor(alpha=0.8, learning_rate=0.01, loss='huber', n_estimators=2000, max_depth=10,
+                                  max_features='sqrt', max_leaf_nodes=20,
+                                  random_state=20, subsample=0.8, verbose=0,
                                   warm_start=False)
 
 #myGBR.get_params                 # 获取模型的所有参数
@@ -170,10 +170,21 @@ stack.fit(train_X, train_Y)
 Y_pred = stack.predict(test_X)
 print(mean_squared_error(test_Y, Y_pred))
 
-################################--xgboost--######################################
+##############################--lightgbm--####################################
+mylgb = lgb.LGBMModel(boosting_type='gbdt', num_leaves=40, max_depth=7, max_bin=233, learning_rate=0.03, n_estimator=10,
+                                                   subsample_for_bin=300, objective='regression', min_split_gain=0.0, 
+                                                   min_child_weight=0.1, min_child_samples=20, subsample=1.0, verbose=0,
+                                                   subsample_freq=1, colsample_bytree=1.0, reg_alpha=0.0, reg_lambda=0.0,
+                                                   random_state=None, n_jobs=-1, silent=True)
+stack = mylgb
+stack.fit(train_X, train_Y)
+Y_pred = stack.predict(test_X)
+print(mean_squared_error(test_Y, Y_pred))
+
+###############################--xgboost--######################################
 
 cv_params = {'n_estimators': [2000]}
-other_params = {'learning_rate': 0.02, 'n_estimators': 500, 'max_depth': 7, 'min_child_weight': 1, 'seed': 0,
+other_params = {'learning_rate': 0.005, 'n_estimators': 500, 'max_depth': 8, 'min_child_weight': 1, 'seed': 0,
                 'max_delta_step':0.1, 
                     'subsample': 0.8, 'colsample_bytree': 0.8, 'gamma': 0.001, 'reg_alpha': 0, 'reg_lambda': 1}
 
@@ -190,7 +201,7 @@ Y_pred = stack.predict(test_X)
 print(mean_squared_error(test_Y, Y_pred))
 
 ###############################--模型融合--######################################
-stack = StackingCVRegressor(regressors=[myGBR, myxgb, myRFR], meta_regressor=ridge,
+stack = StackingCVRegressor(regressors=[myxgb, myRFR, mylgb, myGBR], meta_regressor=ridge,
                              use_features_in_secondary=True, cv=5)
                 
 stack.fit(train_X, train_Y)
