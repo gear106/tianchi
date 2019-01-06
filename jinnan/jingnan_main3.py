@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jan  4 21:05:14 2019
+Created on Sun Jan  6 15:17:12 2019
 
 @author: gear
 github:  https://github.com/gear106
 """
-
 
 import pandas as pd
 import numpy as np
@@ -130,18 +129,52 @@ data['样本id'] = data.apply(lambda df: sample(df['样本id']), axis=1)
     
     
     
-#cate_columns = [f for f in data.columns if f != '样本id']
-#data = data[cate_columns]
-scaler1 = StandardScaler().fit(data)
-scaler2 = MinMaxScaler().fit(data)
+cate_columns = [f for f in data.columns if f != '样本id']
+#label encoder
+for f in cate_columns:
+    data[f] = data[f].map(dict(zip(data[f].unique(), range(0, data[f].nunique()))))
+train = data[:train.shape[0]]
+test  = data[train.shape[0]:]
 
+train['target'] = target
+train['intTarget'] = pd.cut(train['target'], 5, labels=False)
+train = pd.get_dummies(train, columns=['intTarget'])
+li = ['intTarget_0.0','intTarget_1.0','intTarget_2.0','intTarget_3.0','intTarget_4.0']
+mean_features = []
+
+for f1 in cate_columns:
+    rate = train[f1].value_counts(normalize=True, dropna=False).values[0]
+    if rate < 0.50:
+        for f2 in li:
+            col_name = f1+"_"+f2+'_mean'
+            mean_features.append(col_name)
+            order_label = train.groupby([f1])[f2].mean()
+            for df in [train, test]:
+                df[col_name] = df[f].map(order_label)
+
+train.drop(li, axis=1, inplace=True)
+train.drop(['样本id','target'], axis=1, inplace=True)
+test = test[train.columns]
+
+##填充缺失值
+train = train.fillna(-1)
+test = test.fillna(-1)
+train_X = train.values
+train_Y = target.values
+test = test.values
+print(train_X.shape)
+print(test.shape)
+
+#scaler1 = StandardScaler().fit(data)
+#scaler2 = MinMaxScaler().fit(data)
+#
 #train_X = scaler1.transform(data[:train.shape[0]])
 #test = scaler1.transform(data[train.shape[0]:])
 
-train_X = scaler2.transform(data[:train.shape[0]])
-test = scaler2.transform(data[train.shape[0]:])
+#train_X = scaler2.transform(data[:train.shape[0]])
+#test = scaler2.transform(data[train.shape[0]:])
 
-train_Y = target.values
+#train_Y = target.values
 
 train_X, test_X, train_Y, test_Y = train_test_split(train_X, train_Y, test_size=0.1, random_state=1)
         
