@@ -55,7 +55,7 @@ good_cols.append('A3')
 good_cols.append('A4')
 
 # 删除异常值
-train = train[train['收率']>0.87]
+train = train[train['收率']>0.88]
         
 train = train[good_cols]
 good_cols.remove('收率')
@@ -242,7 +242,7 @@ for fold_, (trn_idx, val_idx) in enumerate(folds_stack.split(train_stack,target)
     trn_data, trn_y = train_stack[trn_idx], target.iloc[trn_idx].values
     val_data, val_y = train_stack[val_idx], target.iloc[val_idx].values
     
-    clf_3 = LinearRegression()
+    clf_3 = BayesianRidge()
     clf_3.fit(trn_data, trn_y)
     
     oof_stack[val_idx] = clf_3.predict(val_data)
