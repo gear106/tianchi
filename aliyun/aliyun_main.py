@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 
 
-root = 'D:/data/'      # 文件太大没法git
+root = 'H:/data/'      # 文件太大没法git
 
 ##########################--pandas读取超大文件--################################
 #train = pd.read_csv(root + 'security_train.csv',iterator=True)

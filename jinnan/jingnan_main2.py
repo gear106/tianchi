@@ -21,11 +21,11 @@ import seaborn as sns
 
 from sklearn.metrics import mean_squared_error
 
-from sklearn.model_selection import train_test_split, KFold
+from sklearn.model_selection import train_test_split, KFold, cross_val_score
 from sklearn.model_selection import GridSearchCV
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
-from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, BayesianRidge
 from sklearn.svm import SVR
 
 from mlxtend.regressor import StackingCVRegressor
@@ -54,7 +54,7 @@ good_cols.remove('收率')
 test  = test[good_cols]
 
 # 删除异常值
-train = train[train['收率'] > 0.88]
+train = train[train['收率'] > 0.875]   # 这里取值0.87,0.88,0.89,0.90对性能影响比较大
 
 # 合并数据集
 target = train['收率']
@@ -135,29 +135,28 @@ data['样本id'] = data.apply(lambda df: sample(df['样本id']), axis=1)
 scaler1 = StandardScaler().fit(data)
 scaler2 = MinMaxScaler().fit(data)
 
-#train_X = scaler1.transform(data[:train.shape[0]])
+#train_X1 = scaler1.transform(data[:train.shape[0]])
 #test = scaler1.transform(data[train.shape[0]:])
 
-train_X = scaler2.transform(data[:train.shape[0]])
+train_X1 = scaler2.transform(data[:train.shape[0]])
 test = scaler2.transform(data[train.shape[0]:])
 
-train_Y = target.values
+train_Y1 = target.values
 
-train_X, test_X, train_Y, test_Y = train_test_split(train_X, train_Y, test_size=0.1, random_state=1)
+train_X, test_X, train_Y, test_Y = train_test_split(train_X1, train_Y1, test_size=0.1, random_state=2019)
         
 
 ##############################--Ridge--########################################
 ridge = Ridge(alpha=0.01, normalize=True, max_iter=1500, random_state=2019)
+lrege = LinearRegression()
+lasso = Lasso(alpha=0.00001)
+bayes = BayesianRidge(alpha_1=1e-7, n_iter=5000)
 
 ###############################--RFR--#########################################
 myRFR = RandomForestRegressor(n_estimators=2000, max_depth=10, min_samples_leaf=10, min_samples_split=0.001,
                               max_features='auto', max_leaf_nodes=30, min_weight_fraction_leaf=0.001, random_state=10)
-stack = myRFR
-stack.fit(train_X, train_Y)
-Y_pred = stack.predict(test_X)
-print(mean_squared_error(test_Y, Y_pred))
 
-################################--GBR--##########################################
+#################################--GBR--##########################################
 myGBR = GradientBoostingRegressor(alpha=0.8, learning_rate=0.01, loss='huber', n_estimators=2000, max_depth=10,
                                   max_features='sqrt', max_leaf_nodes=20,
                                   random_state=20, subsample=0.8, verbose=0,
@@ -165,10 +164,6 @@ myGBR = GradientBoostingRegressor(alpha=0.8, learning_rate=0.01, loss='huber', n
 
 #myGBR.get_params                 # 获取模型的所有参数
 
-stack = myGBR
-stack.fit(train_X, train_Y)
-Y_pred = stack.predict(test_X)
-print(mean_squared_error(test_Y, Y_pred))
 
 ##############################--lightgbm--####################################
 mylgb = lgb.LGBMModel(boosting_type='gbdt', num_leaves=40, max_depth=7, max_bin=233, learning_rate=0.03, n_estimator=10,
@@ -176,40 +171,55 @@ mylgb = lgb.LGBMModel(boosting_type='gbdt', num_leaves=40, max_depth=7, max_bin=
                                                    min_child_weight=0.1, min_child_samples=20, subsample=1.0, verbose=0,
                                                    subsample_freq=1, colsample_bytree=1.0, reg_alpha=0.0, reg_lambda=0.0,
                                                    random_state=None, n_jobs=-1, silent=True)
-stack = mylgb
-stack.fit(train_X, train_Y)
-Y_pred = stack.predict(test_X)
-print(mean_squared_error(test_Y, Y_pred))
 
 ###############################--xgboost--######################################
 
 cv_params = {'n_estimators': [2000]}
-other_params = {'learning_rate': 0.005, 'n_estimators': 500, 'max_depth': 8, 'min_child_weight': 1, 'seed': 0,
+other_params = {'learning_rate': 0.005, 'n_estimators': 3000, 'max_depth': 9, 'min_child_weight': 1, 'seed': 0,
                 'max_delta_step':0.1, 
                     'subsample': 0.8, 'colsample_bytree': 0.8, 'gamma': 0.001, 'reg_alpha': 0, 'reg_lambda': 1}
 
-model = xgb.XGBRegressor(**other_params)
-mgb = GridSearchCV(estimator=model, param_grid=cv_params, scoring='neg_mean_squared_error', cv=5, verbose=1)
-mgb.fit(train_X, train_Y)
-print('参数的最佳取值：{0}'.format(mgb.best_params_))
-print('最佳模型得分:{0}'.format(-mgb.best_score_))
-myxgb = mgb.best_estimator_
+#model = xgb.XGBRegressor(**other_params)
+#mgb = GridSearchCV(estimator=model, param_grid=cv_params, scoring='neg_mean_squared_error', cv=5, verbose=1)
+#mgb.fit(train_X, train_Y)
+#print('参数的最佳取值：{0}'.format(mgb.best_params_))
+#print('最佳模型得分:{0}'.format(-mgb.best_score_))
+#myxgb = mgb.best_estimator_
 
-stack = myxgb
-stack.fit(train_X, train_Y)
-Y_pred = stack.predict(test_X)
-print(mean_squared_error(test_Y, Y_pred))
+
+
+myxgb = xgb.XGBRegressor(**other_params)
 
 ###############################--模型融合--######################################
-stack = StackingCVRegressor(regressors=[myxgb, myRFR, mylgb, myGBR], meta_regressor=ridge,
-                             use_features_in_secondary=True, cv=5)
+stack = StackingCVRegressor(regressors=[myxgb, myRFR, mylgb], meta_regressor=bayes,
+                             use_features_in_secondary=True, cv=8)
                 
 stack.fit(train_X, train_Y)
-Y_pred = stack.predict(test_X)
-print(mean_squared_error(test_Y, Y_pred))
-pred_Y = stack.predict(test)
+pred_Y = stack.predict(test_X)
+mse = mean_squared_error(test_Y, pred_Y)
+print('mse: %.10f' % mse)
+folds = KFold(n_splits=7, shuffle=True, random_state=2019)
 
-sub_df = pd.read_csv(root + 'jinnan_round1_submit_20181227.csv', header=None)
-sub_df[1] = pred_Y
-sub_df[1] = sub_df[1].apply(lambda x:round(x, 3))
-sub_df.to_csv("2019.csv", index=False, header=None)
+#mean = []
+#for fold, (i, j) in enumerate(folds.split(train_X1, train_Y1)):
+#    print("fold {}".format(fold+1))
+#    trn_X, trn_Y = train_X1[i], train_Y1[i]
+#    tsn_X, tsn_Y = train_X1[j], train_Y1[j]
+#    
+#    stack = stack
+#    stack.fit(trn_X, trn_Y)
+#    pred_Y = stack.predict(tsn_X)
+#    mse = mean_squared_error(tsn_Y, pred_Y)
+#    print('mse: %.10f' % mse)
+#    mean.append(mse)
+#print('mean_cv5_error: %.10f' % (sum(mean) / 7))
+    
+    
+    
+    
+    
+
+#sub_df = pd.read_csv(root + 'jinnan_round1_submit_20181227.csv', header=None)
+#sub_df[1] = pred_Y
+#sub_df[1] = sub_df[1].apply(lambda x:round(x, 3))
+#sub_df.to_csv("2019.csv", index=False, header=None)
