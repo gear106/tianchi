@@ -131,6 +131,19 @@ categorical_columns.remove('A1')
 categorical_columns.remove('A3')
 categorical_columns.remove('A4')
 
+data['S1'] = data['A7'] - data['A5']
+data['S2'] = data['A11'] - data['A9']
+data['S3'] = data['A25'] - data['A21']
+data['S4'] = data['B5'] - data['B6']
+#data['S5'] = data['B10'] * data['B9']
+#data['S6'] = data['B11'] * data['B10']
+numerical_columns.append('S1')
+numerical_columns.append('S2')
+numerical_columns.append('S3')
+numerical_columns.append('S4')
+#numerical_columns.append('S5')
+#numerical_columns.append('S6')
+
 #label encoder
 for f in categorical_columns:
     data[f] = data[f].map(dict(zip(data[f].unique(), range(0, data[f].nunique()))))
@@ -177,21 +190,21 @@ print(X_test.shape)
 
 y_train = target.values
 
-param = {'num_leaves': 200,
-         'min_data_in_leaf': 5, 
+param = {'num_leaves': 5,
+         'min_data_in_leaf': 10, 
          'objective':'regression',
-         'max_depth': 3,
+         'max_depth': 2,
          'learning_rate': 0.05,
          "min_child_samples": 50,
          "boosting": "gbdt",
          "feature_fraction": 0.85,
          "bagging_freq": 1,
-         "bagging_fraction": 0.7 ,
+         "bagging_fraction": 0.6 ,
          "bagging_seed": 11,
          "metric": 'mse',
-         "lambda_l1": 0.1,
+         "lambda_l1": 0.01,
          "verbosity": -1}
-folds = KFold(n_splits=5, shuffle=True, random_state=2018)
+folds = KFold(n_splits=5, shuffle=True, random_state=1)
 oof_lgb = np.zeros(len(train))
 predictions_lgb = np.zeros(len(test))
 
@@ -210,10 +223,10 @@ print("CV score: {:<8.8f}".format(mean_squared_error(oof_lgb, target)))
 
 
 #### xgb
-xgb_params = {'eta': 0.05, 'max_depth': 10, 'subsample': 0.9, 'colsample_bytree': 0.8, 
+xgb_params = {'eta': 0.05, 'max_depth': 4, 'subsample': 0.9, 'colsample_bytree': 0.5, 
           'objective': 'reg:linear', 'eval_metric': 'rmse', 'silent': True, 'nthread': 4}
 
-folds = KFold(n_splits=5, shuffle=True, random_state=2018)
+folds = KFold(n_splits=5, shuffle=True, random_state=2019)
 oof_xgb = np.zeros(len(train))
 predictions_xgb = np.zeros(len(test))
 
