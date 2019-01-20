@@ -152,6 +152,9 @@ test  = data[train.shape[0]:]
 print(train.shape)
 print(test.shape)
 
+#X_train = train.values
+#X_test = test.values
+
 #train['target'] = list(target) 
 train['target'] = target
 train['intTarget'] = pd.cut(train['target'], 5, labels=False)

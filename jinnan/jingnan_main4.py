@@ -48,9 +48,14 @@ for col in train.columns:
     if rate > 0.9:
         good_cols.remove(col)
         print(col,rate)
+        
+# 暂时不删除，后面构造特征需要
+good_cols.append('A1')
+good_cols.append('A3')
+good_cols.append('A4')
 
 # 删除异常值
-train = train[train['收率']>0.87]
+train = train[train['收率']>0.88]
         
 train = train[good_cols]
 good_cols.remove('收率')
@@ -115,6 +120,30 @@ data['样本id'] = data['样本id'].apply(lambda x: int(x.split('_')[1]))
 categorical_columns = [f for f in data.columns if f not in ['样本id']]
 numerical_columns = [f for f in data.columns if f not in categorical_columns]
 
+data['b14/a1_a3_a4_a19_b1_b12'] = data['B14']/(data['A1']+data['A3']+data['A4']+data['A19']+data['B1']+data['B12'])
+
+numerical_columns.append('b14/a1_a3_a4_a19_b1_b12')
+
+del data['A1']
+del data['A3']
+del data['A4']
+categorical_columns.remove('A1')
+categorical_columns.remove('A3')
+categorical_columns.remove('A4')
+
+data['S1'] = data['A7'] - data['A5']
+data['S2'] = data['A11'] - data['A9']
+data['S3'] = data['A25'] - data['A21']
+data['S4'] = data['B5'] - data['B6']
+#data['S5'] = data['B10'] * data['B9']
+#data['S6'] = data['B11'] * data['B10']
+numerical_columns.append('S1')
+numerical_columns.append('S2')
+numerical_columns.append('S3')
+numerical_columns.append('S4')
+#numerical_columns.append('S5')
+#numerical_columns.append('S6')
+
 #label encoder
 for f in categorical_columns:
     data[f] = data[f].map(dict(zip(data[f].unique(), range(0, data[f].nunique()))))
@@ -123,41 +152,9 @@ test  = data[train.shape[0]:]
 print(train.shape)
 print(test.shape)
 
-#train['target'] = list(target) 
-train['target'] = target
-train['intTarget'] = pd.cut(train['target'], 5, labels=False)
-train = pd.get_dummies(train, columns=['intTarget'])
-li = ['intTarget_0.0','intTarget_1.0','intTarget_2.0','intTarget_3.0','intTarget_4.0']
-mean_columns = []
-for f1 in categorical_columns:
-    cate_rate = train[f1].value_counts(normalize=True, dropna=False).values[0]
-    if cate_rate < 0.90:
-        for f2 in li:
-            col_name = 'B14_to_'+f1+"_"+f2+'_mean'
-            mean_columns.append(col_name)
-            order_label = train.groupby([f1])[f2].mean()
-            train[col_name] = train['B14'].map(order_label)
-            miss_rate = train[col_name].isnull().sum() * 100 / train[col_name].shape[0]
-            if miss_rate > 0:
-                train = train.drop([col_name], axis=1)
-                mean_columns.remove(col_name)
-            else:
-                test[col_name] = test['B14'].map(order_label)
-                
-train.drop(li+['target'], axis=1, inplace=True)
-print(train.shape)
-print(test.shape)
+train_X = train.values
+test = test.values
 
-train_X = train[mean_columns+numerical_columns].values
-test_X = test[mean_columns+numerical_columns].values
-# one hot
-enc = OneHotEncoder()
-for f in categorical_columns:
-    enc.fit(data[f].values.reshape(-1, 1))
-    train_X = sparse.hstack((train_X, enc.transform(train[f].values.reshape(-1, 1))), 'csr')
-    test_X = sparse.hstack((test_X, enc.transform(test[f].values.reshape(-1, 1))), 'csr')
-print(train_X.shape)
-print(test_X.shape)
 
 train_Y = target.values
 
